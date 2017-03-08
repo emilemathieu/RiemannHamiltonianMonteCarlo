@@ -43,14 +43,14 @@ def leftmost_interval(U, Lambda):
             return 0
 
 
-def mixing_weights_sampling(r):
+def mixing_weights_sampling(r2):
     """
     Drawing a sample of mixing weights using rejection sampling with GIG
     """
+    r = np.sqrt(r2)
     OK = False
     while not OK:
-        Y = np.random.normal(0, 1)
-        Y = Y**2
+        Y = (np.random.normal(0, 1))**2
         Y = 1 + (Y - np.sqrt(Y * (4*r + Y))) / (2*r)
         U = np.random.uniform(0, 1)
         if U <= 1/(1+Y):
@@ -65,47 +65,75 @@ def mixing_weights_sampling(r):
     return Lambda
 
 
-def auxiliary_gibbs(XX, t, v, beta, max_iter=6000, burn_in=5000):
+def truncated_normal_sampling(Z, t, mean, var):
+    t_ones = np.where(t == 1)[0]
+    t_zeros = np.where(t == 0)[0]
+    for i in t_ones:
+        Z[i] = np.random.normal(mean[i], var[i]) * (Z[i] > 0)
+    for i in t_zeros:
+        Z[i] = np.random.normal(mean[i], var[i]) * (Z[i] <= 0)
+    return Z
+
+
+def auxiliary_gibbs(XX, t, v=100, max_iter=6000, burn_in=5000):
     """
     Auxiliary variable Gibbs sampler
     """
+    print("--- Initialization...")
     N, D = XX.shape
     mix_weights = np.identity(N)
+    beta_saved = np.zeros((max_iter-burn_in, D))
     # Truncated normal distribution
     Z = np.zeros(N)
-    t_ones = np.where(t == 1)
-    t_zeros = np.where(t == 0)
-    for ind in t_ones:
-        Z[ind] = np.random.multivariate_normal(np.zeros(N), np.identity(N)) * (Z[ind] > 0)
-    for ind in t_zeros:
-        Z[ind] = np.random.multivariate_normal(np.zeros(N), np.identity(N)) * (Z[ind] <= 0)
+    # t_ones = np.where(t == 1)[0]
+    # t_zeros = np.where(t == 0)[0]
+    # for ind in t_ones:
+    #     Z[ind] = np.random.normal(0, 1) * (Z[ind] > 0)
+    # for ind in t_zeros:
+    #     Z[ind] = np.random.normal(0, 1) * (Z[ind] <= 0)
+    Z = truncated_normal_sampling(Z, t, np.zeros(N), np.ones(N))
 
-    H = np.zeros(N)
-    W = np.zeros(N)
+    print("--- Initialization: done. Iterating...")
     # Iterating
     for i in range(max_iter):
+        if i % 100 == 0:
+            print("Iteration %d" % i)
         mix_weights_inv = np.linalg.inv(mix_weights)
         V = np.linalg.inv(XX.T.dot(mix_weights_inv.dot(XX)) + np.identity(D)*1/v)
         L = np.linalg.cholesky(V)
         S = V.dot(XX.T)
         B = S.dot(mix_weights_inv.dot(Z))
-        for j in range(N):
-            z_old = Z[j]
-            H[j] = XX[j, :].dot(S[:, j])
-            W[j] = H[j] / (mix_weights[j, j] - H[j])
-            m = XX[j, :].dot(B)
-            m -= W[j]*(Z[j] - m)
-            q = mix_weights[j, j] * (W[j] + 1)
-            # Truncated normal distribution
-            if t[j] == 1:
-                Z[j] = np.random.multivariate_normal(m, q) * (Z[j] > 0)
-            else:
-                Z[j] = np.random.multivariate_normal(m, q) * (Z[j] <= 0)
-            B += (Z[j] - z_old) / mix_weights[j, j] * S[:, j]
+        # Updating Z and B
+        # for j in range(N):
+        #     z_old = Z[j]
+        #     H[j] = XX[j, :].dot(S[:, j])
+        #     W[j] = H[j] / (mix_weights[j, j] - H[j])
+        #     m = XX[j, :].dot(B)
+        #     m -= W[j]*(Z[j] - m)
+        #     q = mix_weights[j, j] * (W[j] + 1)
+        #     # Truncated normal distribution
+        #     Z[j] = np.random.normal(m, q) * ((Z[j] > 0) * (t[j] == 1) +
+        #                                      (Z[j] <= 0) * (t[j] == 0))
+        #     B += (Z[j] - z_old) / mix_weights[j, j] * S[:, j]
+
+        z_old = Z
+        H = (XX.T*S).sum(axis=0)
+        W = H / (np.diag(mix_weights) - H)
+        m = XX.dot(B)
+        m -= W*(Z - m)
+        q = np.diag(mix_weights) * (W + np.ones(N))
+        Z = truncated_normal_sampling(Z, t, m, q)
+        B = ((Z - z_old) / (np.diag(mix_weights)*S)).sum(axis=1)
+
         p = L.shape[1]
         T = np.random.multivariate_normal(np.zeros(p), np.identity(p))
-        beta = B + L.dot(T)  # save all betas?
+        # Drawing new values of beta
+        beta = B + L.dot(T)
+        if i > burn_in:
+            beta_saved[i - burn_in] = beta
+        # Sampling new mixing weights
         for j in range(N):
-            r = Z[j] - XX[j, :]*beta
-            mix_weights[j][j] = mixing_weights_sampling(r)
-    return beta
+            r2 = (Z[j] - XX[j, :].dot(beta))**2
+            mix_weights[j, j] = mixing_weights_sampling(r2)
+    print("--- Iterating: done.")
+    return beta_saved
