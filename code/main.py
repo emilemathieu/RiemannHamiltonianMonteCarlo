@@ -8,7 +8,7 @@ Created on Mon Mar  6 18:41:45 2017
 import numpy as np
 from hmc import HMC
 from metropolis import AMH
-
+from rmhmc import RMHMC
 #%% Load and preprocess data
 X = np.loadtxt(open("data/australian.csv", "rb"), delimiter=",")
 t = np.reshape(X[:,-1], (-1,1))
@@ -22,7 +22,7 @@ X = (X - np.tile(np.mean(X,axis=0), (N,1))) / np.tile(np.std(X,axis=0), (N,1))
 XX = np.ones((N,1))
 XX = np.hstack((XX,X))
 
-betaPosterior, TimeTaken = AMH(XX, t)
+betaPosterior, TimeTaken = RMHMC(XX, t)
 
 #%%
 #%matplotlib inline
