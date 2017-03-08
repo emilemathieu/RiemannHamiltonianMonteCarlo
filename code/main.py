@@ -11,7 +11,7 @@ from metropolis import AMH
 from gibbs_sampler import auxiliary_gibbs
 
 #%% Load and preprocess data
-X = np.loadtxt(open("data/australian.csv", "rb"), delimiter=",")
+X = np.loadtxt(open("data/heart.csv", "rb"), delimiter=",")
 t = np.reshape(X[:,-1], (-1,1))
 X = np.delete(X, -1, 1)
 N = X.shape[0]
@@ -24,10 +24,11 @@ XX = np.ones((N,1))
 XX = np.hstack((XX,X))
 
 #betaPosterior, TimeTaken = AMH(XX, t)
-betaPosterior = auxiliary_gibbs(XX, t)
+betaPosterior, time = auxiliary_gibbs(XX, t)
 import pdb; pdb.set_trace()
 
 #%%
 #%matplotlib inline
 import matplotlib.pyplot as plt
-plt.plot(range(betaPosterior.shape[0]), betaPosterior, linewidth=0.2)
+
+plt.plot(betaPosterior, linewidth=0.2)
