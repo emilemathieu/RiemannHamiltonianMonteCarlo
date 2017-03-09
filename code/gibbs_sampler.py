@@ -7,6 +7,7 @@ Created on Mon Mar  7 17:40:12 2017
 """
 
 import numpy as np
+import timeit
 
 
 def rightmost_interval(U, Lambda):
@@ -66,6 +67,9 @@ def mixing_weights_sampling(r2):
 
 
 def truncated_normal_sampling(Z, t, mean, var):
+    """
+    Sampling from truncated normal distribution
+    """
     t_ones = np.where(t == 1)[0]
     t_zeros = np.where(t == 0)[0]
     for i in t_ones:
@@ -85,12 +89,6 @@ def auxiliary_gibbs(XX, t, v=100, max_iter=6000, burn_in=5000):
     beta_saved = np.zeros((max_iter-burn_in, D))
     # Truncated normal distribution
     Z = np.zeros(N)
-    # t_ones = np.where(t == 1)[0]
-    # t_zeros = np.where(t == 0)[0]
-    # for ind in t_ones:
-    #     Z[ind] = np.random.normal(0, 1) * (Z[ind] > 0)
-    # for ind in t_zeros:
-    #     Z[ind] = np.random.normal(0, 1) * (Z[ind] <= 0)
     Z = truncated_normal_sampling(Z, t, np.zeros(N), np.ones(N))
 
     print("--- Initialization: done. Iterating...")
@@ -98,24 +96,15 @@ def auxiliary_gibbs(XX, t, v=100, max_iter=6000, burn_in=5000):
     for i in range(max_iter):
         if i % 100 == 0:
             print("Iteration %d" % i)
+        # Timing after burn in
+        if i == burn_in:
+            start = timeit.default_timer()
         mix_weights_inv = np.linalg.inv(mix_weights)
         V = np.linalg.inv(XX.T.dot(mix_weights_inv.dot(XX)) + np.identity(D)*1/v)
         L = np.linalg.cholesky(V)
         S = V.dot(XX.T)
         B = S.dot(mix_weights_inv.dot(Z))
         # Updating Z and B
-        # for j in range(N):
-        #     z_old = Z[j]
-        #     H[j] = XX[j, :].dot(S[:, j])
-        #     W[j] = H[j] / (mix_weights[j, j] - H[j])
-        #     m = XX[j, :].dot(B)
-        #     m -= W[j]*(Z[j] - m)
-        #     q = mix_weights[j, j] * (W[j] + 1)
-        #     # Truncated normal distribution
-        #     Z[j] = np.random.normal(m, q) * ((Z[j] > 0) * (t[j] == 1) +
-        #                                      (Z[j] <= 0) * (t[j] == 0))
-        #     B += (Z[j] - z_old) / mix_weights[j, j] * S[:, j]
-
         z_old = Z
         H = (XX.T*S).sum(axis=0)
         W = H / (np.diag(mix_weights) - H)
@@ -124,16 +113,17 @@ def auxiliary_gibbs(XX, t, v=100, max_iter=6000, burn_in=5000):
         q = np.diag(mix_weights) * (W + np.ones(N))
         Z = truncated_normal_sampling(Z, t, m, q)
         B = ((Z - z_old) / (np.diag(mix_weights)*S)).sum(axis=1)
-
+        # Drawing new values of beta
         p = L.shape[1]
         T = np.random.multivariate_normal(np.zeros(p), np.identity(p))
-        # Drawing new values of beta
         beta = B + L.dot(T)
         if i > burn_in:
             beta_saved[i - burn_in] = beta
         # Sampling new mixing weights
         for j in range(N):
             r2 = (Z[j] - XX[j, :].dot(beta))**2
-            mix_weights[j, j] = mixing_weights_sampling(r2)
+            mix_weights[j, j] = mixing_weights_sampling(r2)  # to time
     print("--- Iterating: done.")
-    return beta_saved
+    time = timeit.default_timer() - start
+    print("--- Auxiliary Variable Gibbs Sampler finished in {}".format(time))
+    return beta_saved, time

@@ -12,7 +12,7 @@ from rmhmc import RMHMC
 from gibbs_sampler import auxiliary_gibbs
 from tools import nextpow2, ac, CalculateESS
 #%% Load and preprocess data
-X = np.loadtxt(open("data/australian.csv", "rb"), delimiter=",")
+X = np.loadtxt(open("data/heart.csv", "rb"), delimiter=",")
 t = np.reshape(X[:,-1], (-1,1))
 X = np.delete(X, -1, 1)
 N = X.shape[0]
@@ -23,9 +23,10 @@ X = (X - np.tile(np.mean(X, axis=0), (N,1))) / np.tile(np.std(X, axis=0), (N, 1)
 XX = np.ones((N,1))
 XX = np.hstack((XX,X))
 
-betaPosterior, TimeTaken = HMC(XX, t)
-#betaPosterior = auxiliary_gibbs(XX, t)
-#import pdb; pdb.set_trace()
+betaPosterior, TimeTaken = RMHMC(XX, t)
+#betaPosterior, TimeTaken = AMH(XX, t)
+betaPosterior, time = auxiliary_gibbs(XX, t)
+import pdb; pdb.set_trace()
 
 #%%
 #%matplotlib inline
