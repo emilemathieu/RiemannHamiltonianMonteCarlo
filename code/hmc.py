@@ -83,7 +83,7 @@ def HMC(XX, t, NumOfIterations=6000, BurnIn=1000, NumOfLeapFrogSteps=100, StepSi
         if IterationNum > BurnIn:
             wSaved[IterationNum-BurnIn, :] = w.T
         elif np.mod(IterationNum,50) == 0:
-            print('{} iterations completed.'.format(IterationNum+1))
+            print('{} iterations completed.'.format(IterationNum))
             print('Acceptance: {}'.format(Accepted/Proposed))
             Accepted = 0
             Proposed = 0
