@@ -1,3 +1,4 @@
 .DS_Store
 code/.DS_Store
 code/__pycache__/*
+code/authors_code/Bayes_Log_Reg/Results/Results*
