@@ -107,17 +107,18 @@ def auxiliary_gibbs(XX, t, v=100, max_iter=6000, burn_in=5000):
         # Updating Z and B
         z_old = Z
         H = (XX.T*S).sum(axis=0)
-        W = H / (np.diag(mix_weights) - H)
+        diag_mix_weights = np.diag(mix_weights)
+        W = H / (diag_mix_weights - H)
         m = XX.dot(B)
         m -= W*(Z - m)
-        q = np.diag(mix_weights) * (W + np.ones(N))
+        q = diag_mix_weights * (W + np.ones(N))
         Z = truncated_normal_sampling(Z, t, m, q)
-        B = ((Z - z_old) / (np.diag(mix_weights)*S)).sum(axis=1)
+        B = ((Z - z_old) / (diag_mix_weights*S)).sum(axis=1)
         # Drawing new values of beta
         p = L.shape[1]
         T = np.random.multivariate_normal(np.zeros(p), np.identity(p))
         beta = B + L.dot(T)
-        if i > burn_in:
+        if i >= burn_in:
             beta_saved[i - burn_in] = beta
         # Sampling new mixing weights
         for j in range(N):
