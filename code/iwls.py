@@ -10,7 +10,7 @@ def log_multi_normal_density(X, means, cov):
     return 1/(np.sqrt((2*np.pi)**dim)*det_cov) * np.exp(-0.5*u.T.dot(np.linalg.inv(cov).dot(u)))
 
 
-def iwls(XX, t, alpha=100, max_iter=6000, burn_in=5000):
+def iwls(XX, t, alpha=100, max_iter=10000, burn_in=5000):
     print("--- Initialization...")
     # Initialization
     accepted = 0
@@ -30,18 +30,20 @@ def iwls(XX, t, alpha=100, max_iter=6000, burn_in=5000):
     inv_W = np.eye(W.shape[0]) / W
 
     # Computing current covariance and means
-    current_cov = np.linalg.inv(np.eye(dim) / alpha + XX.T.dot(np.diag(W).dot(XX)))  # covariance matrix
+    current_cov = np.linalg.inv(np.eye(dim) / alpha + (XX.T*np.tile(W[:, np.newaxis].T, (dim, 1))).dot(XX))  # covariance matrix
     z = XX.dot(beta)[:, np.newaxis] + inv_W.dot(t - p[:, np.newaxis])
     current_mean = current_cov.dot(XX.T.dot(np.diag(W).dot(z)))[:, 0]  # means vector
 
     print("--- Iterating...")
     for i in range(max_iter):
-        if i % 100 == 0:
+        if i % 1000 == 0:
             print("Iteration %d" % i)
         if i == burn_in:
+            print("Burn-in complete, now drawing posterior samples.")
             start = timeit.default_timer()
         # Sampling from the proposal density
         beta_new = np.random.multivariate_normal(current_mean, current_cov)
+
         # Computing joint likelihood for this new beta
         log_prior = LogNormPDF(np.zeros((1, dim)), beta_new[:, np.newaxis], alpha)
         f = np.dot(XX, beta_new)
@@ -54,15 +56,16 @@ def iwls(XX, t, alpha=100, max_iter=6000, burn_in=5000):
         inv_W = np.eye(W.shape[0]) / W
 
         # Computing new covariance and means
-        new_cov = np.linalg.inv(np.eye(dim) / alpha + XX.T.dot(np.diag(W).dot(XX)))  # new covariance matrix
+        new_cov = np.linalg.inv(np.eye(dim) / alpha + (XX.T*np.tile(W[:, np.newaxis].T, (dim, 1))).dot(XX))  # new covariance matrix
         z = XX.dot(beta_new)[:, np.newaxis] + inv_W.dot(t - p[:, np.newaxis])
         new_mean = new_cov.dot(XX.T.dot(np.diag(W).dot(z)))[:, 0]  # new means vector
 
         # Computing proposal probabilities (without the normalizing constants)
-        prob_new_given_old = -np.log(np.linalg.det(current_cov))
+        prob_new_given_old = -np.sum(np.diag(np.log(np.linalg.cholesky(current_cov+np.eye(dim)*1e-6))))
         prob_new_given_old -= 0.5 * (beta_new - current_mean).T.dot(np.linalg.inv(
             current_cov)).dot(beta_new - current_mean)
-        prob_old_given_new = -np.log(np.linalg.det(new_cov))
+
+        prob_old_given_new = -np.sum(np.diag(np.log(np.linalg.cholesky(new_cov+np.eye(dim)*1e-6))))
         prob_old_given_new -= 0.5 * (beta - new_mean).T.dot(np.linalg.inv(
             new_cov)).dot(beta - new_mean)
 
@@ -81,6 +84,6 @@ def iwls(XX, t, alpha=100, max_iter=6000, burn_in=5000):
         if i >= burn_in:
             beta_saved[i - burn_in] = beta
     print("--- Iterating: done.")
-    print(accepted)
+    print("Number of accepted samples: ", accepted)
     time = timeit.default_timer() - start
     return beta_saved, time

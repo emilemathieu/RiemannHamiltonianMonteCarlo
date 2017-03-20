@@ -28,13 +28,16 @@ X = (X - np.tile(np.mean(X, axis=0), (N,1))) / np.tile(np.std(X, axis=0), (N, 1)
 XX = np.ones((N, 1))
 XX = np.hstack((XX, X))
 
-n_experiments = 10
+n_experiments = 1
 
-results_beta = np.zeros((10, 1000, 14))
+results_beta = np.zeros((10, 5000, 14))
 results_time = np.zeros(10)
 for i in range(n_experiments):
-    #results_beta[i], results_time[i] = iwls(XX, t)
-    results_beta[i], results_time[i] = auxiliary_gibbs(XX, t)
+    results_beta[i], results_time[i] = iwls(XX, t)
+    #results_beta[i], results_time[i] = auxiliary_gibbs(XX, t)
+    #results_beta[i], results_time[i] = AMH(XX, t)
+    #results_beta[i], results_time[i] = RMHMC(XX, t)
+    #results_beta[i], results_time[i] = HMC(XX, t)
 import pdb; pdb.set_trace()
 avg_beta_posterior = np.mean(results_beta, axis=0)
 avg_time_taken = np.mean(results_time)
