@@ -9,7 +9,7 @@ import numpy as np
 from tools import LogNormPDF
 import timeit
     
-def HMC(XX, t, NumOfIterations=6000, BurnIn=1000, NumOfLeapFrogSteps=100, StepSize=0.1):
+def HMC(XX, t, NumOfIterations=6000, BurnIn=1000, NumOfLeapFrogSteps=100, StepSize=0.14):
     """ HAMILTONIAN MONTE CARLO """
     
     N,D = XX.shape
